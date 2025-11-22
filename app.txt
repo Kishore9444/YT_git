@@ -1,0 +1,64 @@
+@app.route('/dashboard')
+def customer_dashboard():
+    if not session.get('user_id') or session.get('is_admin'):
+        flash("Please login as customer.", "warning")
+        return redirect(url_for('login'))
+
+    user = User.query.get(session['user_id'])
+    # fetch bills newest first
+    bills = Billing.query.filter_by(customer_id=user.id).order_by(Billing.created_at.desc()).all()
+
+    # prepare comparison object
+    comparison = None
+    if len(bills) >= 2:
+        current = bills[0]
+        previous = bills[1]
+        unit_diff = current.units - previous.units
+        amount_diff = round(current.amount - previous.amount, 2)
+
+        unit_pct = None
+        amount_pct = None
+        if previous.units:
+            unit_pct = round((unit_diff / previous.units) * 100, 2)
+        if previous.amount:
+            amount_pct = round((amount_diff / previous.amount) * 100, 2)
+
+        comparison = {
+            'current_id': current.id,
+            'current_units': current.units,
+            'current_amount': current.amount,
+            'current_date': current.created_at,
+            'previous_id': previous.id,
+            'previous_units': previous.units,
+            'previous_amount': previous.amount,
+            'previous_date': previous.created_at,
+            'unit_diff': unit_diff,
+            'amount_diff': amount_diff,
+            'unit_pct': unit_pct,
+            'amount_pct': amount_pct,
+            'paid_current': current.paid,
+            'paid_previous': previous.paid
+        }
+    elif len(bills) == 1:
+        b = bills[0]
+        comparison = {
+            'current_id': b.id,
+            'current_units': b.units,
+            'current_amount': b.amount,
+            'current_date': b.created_at,
+            'previous_id': None,
+            'previous_units': None,
+            'previous_amount': None,
+            'previous_date': None,
+            'unit_diff': None,
+            'amount_diff': None,
+            'unit_pct': None,
+            'amount_pct': None,
+            'paid_current': b.paid,
+            'paid_previous': None
+        }
+
+    # DEBUG (temporarily) - print to console so you know comparison is built
+    print("DEBUG comparison:", comparison)
+
+    return render_template('dashboard.html', user=user, bills=bills, comparison=comparison)
